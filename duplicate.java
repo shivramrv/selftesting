@@ -1,39 +1,74 @@
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 
+
 public class Main {
+    public static enum ACTION {
+        RECLAIM,
+        RECLAIM_REQUEST,
+        REGISTER
+    }
+
     public static void main(String[] args) {
         HashMap<String,String> currentNames = new HashMap<>();
         List<String> result = new ArrayList<>();
-        List<String> list = List.of("1 | Llama, Inc.","2 | llama inc","3 | The Llama", "1 | reclaim | Llama LLC","5 | LLC","6 | Lincoln INC");
+        List<String> list = List.of("1 | Llama, Inc.","RECLAIM | 1 | Llama1");
+
         for(String compName: list){
 
             String[] splitComp = compName.split(" \\| ");
-            boolean isReClaimRequest = false;
-            if(splitComp.length > 2 && splitComp[1].equals("reclaim") ){
-                isReClaimRequest = true;
-            }
-            String compId = splitComp[0];
-            compName = isReClaimRequest? splitComp[2] : splitComp[1];
+            ACTION action = getAction(splitComp);
+            String userId = getUserId(action, splitComp);
+            compName = getCompName(action, splitComp);
             compName = normalizeCompanyName(compName);
             boolean nameNotAvailable = currentNames.containsKey(compName) || compName.isBlank();
-            if(isReClaimRequest){
-                if(!currentNames.get(compName).equals(compId) ){
-                    //name not found in system
-                    result.add(compId + " | " + "Not Reclaimed");
+            if(action == ACTION.RECLAIM_REQUEST){
+                if(currentNames.get(compName) == null || !currentNames.get(compName).equals(userId) ){
+                    result.add(userId + " | " + "Not Reclaimed");
                 }else{
-                    result.add(compId + " | " + "Reclaimed");
+                    result.add(userId + " | " + "Reclaimed");
                 }
                 continue;
             }
-            if(!nameNotAvailable){
-                currentNames.put(compName,compId);
+            else if(action == ACTION.RECLAIM){
+                if(currentNames.get(compName) == null || !currentNames.get(compName).equals(userId) ){
+                    result.add(userId + " | " + "Not Reclaimed");
+                }else{
+                    currentNames.remove(compName);
+                    result.add(userId + " | " + "Reclaimed");
+                }
+                continue;
             }
-            result.add(compId + " | " + (nameNotAvailable ? "Name Not Available": "Name Available"));
+            //action: REGISTER
+            if(!nameNotAvailable){
+                currentNames.put(compName,userId);
+            }
+            result.add(userId + " | " + (nameNotAvailable ? "Name Not Available": "Name Available"));
         }
         System.out.println(result);
+    }
+
+    private static String getCompName(ACTION action, String[] splitComp) {
+        String compName;
+        compName = (action == ACTION.RECLAIM || action == ACTION.RECLAIM_REQUEST) ? splitComp[2] : splitComp[1];
+        return compName;
+    }
+
+    private static String getUserId(ACTION action, String[] splitComp) {
+        String userId =  action ==ACTION.RECLAIM ? splitComp[1]: splitComp[0];
+        return userId;
+    }
+
+    private static ACTION getAction(String[] splitComp) {
+        ACTION action = ACTION.REGISTER;
+        if(splitComp.length > 2 && splitComp[0].equals("RECLAIM")){
+            action= ACTION.RECLAIM;
+        }
+        if(splitComp.length > 2 && splitComp[1].equals("reclaim") ){
+            action= ACTION.RECLAIM_REQUEST;
+        }
+        return action;
     }
 
     private static String normalizeCompanyName(String compName) {
